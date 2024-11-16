@@ -273,3 +273,231 @@ It can work with different time zones as well:
 **('NOV-10-1980 5:43 AM PST':: TIMESTAMP WITH TIME ZONE);**
 
 Returns -> 9 days 16:40:00
+
+**Database-Side Validation and Constraints**
+
+**Applying a NULL Constraint**
+
+**Row-Level Validation**
+
+- Is a given value defined?
+- Is a value unique in its column
+- Is a value >, &lt;, &gt;=, <=, = some other value?
+
+You can always add the constraint NOT NULL to prevent null values from being inserted into the table
+
+When Creating the table, this is how you do it for price:
+
+**CREATE TABLE products (**
+
+**Id SERIAL PRIMARY KEY,**
+
+**name VARCHAR(50),**
+
+**department VARCHAR(50),**
+
+**price INTEGER NOT NULL,**
+
+**weight INTEGER**
+
+**);**
+
+When the Table has already been created:
+
+**ALTER TABLE products**
+
+**ALTER COLUMN price**
+
+**SET NOT NULL;**
+
+NB: The constraint cannot be set if there are already null values in the table. The null values have to be converted to an actual values for the constraint to be applied or the null value rows could be deleted
+
+Example of converting a price column with null values
+
+**UPDATE products**
+
+**SET price = 9999**
+
+**WHERE price IS NULL;**
+
+Now that the price column has no null values in it, the constraint can be applied.
+
+**ALTER TABLE products**
+
+**ALTER COLUMN price**
+
+**SET NOT NULL;**
+
+**DEFAULT COLUMN VALUES**
+
+When Creating The Table
+
+CREATE TABLE products (
+
+Id SERIAL PRIMARY KEY,
+
+Name VARCHAR(50) NOT NULL,
+
+Department VARCHAR(50) NOT NULL,
+
+Price INTEGER DEFAULT 999,
+
+Weight INTEGER
+
+);
+
+After The Table Was Created
+
+ALTER TABLE products
+
+ALTER COLUMN price
+
+SET DEFAULT 999;
+
+**Applying a Unique Constraint to One Column**
+
+A **_UNIQUE_** constraint ensures values in a particular column are not duplicated
+
+In the case below, the UNIQUE constraint is used to ensure that the column name does not have products with the same name
+
+When Creating The Table
+
+CREATE TABLE products (
+
+Id SERIAL PRIMARY KEY,
+
+Name VARCHAR(50) NOT NULL UNIQUE,
+
+Department VARCHAR(50) NOT NULL,
+
+Price INTEGER DEFAULT 999,
+
+Weight INTEGER
+
+);
+
+After The Table Was Created
+
+ALTER TABLE products
+
+ADD UNIQUE (name);
+
+NB: You cannot add(alter) the UNIQUE constraint unless all values inside the table are already unique values
+
+**Multi-Column Uniqueness**
+
+When Creating The Table
+
+CREATE TABLE products (
+
+Id SERIAL PRIMARY KEY,
+
+Name VARCHAR(50) NOT NULL,
+
+Department VARCHAR(50) NOT NULL,
+
+Price INTEGER DEFAULT 999,
+
+Weight INTEGER,
+
+UNIQUE(name, department)
+
+);
+
+After The Table Was Created
+
+ALTER TABLE products
+
+ADD UNIQUE (name, department);
+
+Dropping Constraints
+
+ALTER TABLE products
+
+DROP CONSTRAINT products_name_key;
+
+ALTER TABLE products
+
+DROP CONSTRAINT products_name_department_key;
+
+**Adding a Validation Check**
+
+The CHECK below looks if the data being inserted or updated in the price column is greater than 0.
+
+When Creating The Table
+
+CREATE TABLE products (
+
+Id SERIAL PRIMARY KEY,
+
+Name VARCHAR(50) NOT NULL,
+
+Department VARCHAR(50) NOT NULL,
+
+Price INTEGER CHECK (price > 0),
+
+Weight INTEGER,
+
+UNIQUE(name, department)
+
+);
+
+After The Table Was Created
+
+ALTER TABLE products
+
+ADD CHECK (price > 0);
+
+NB: A check can only work on the row we are adding/updating. We cannot apply a check if all the rows inside our existing table don’t already satisfy the check.
+
+**Checks Over Multiple Columns**
+
+The CHECK below ensures that an order is delivered after it is created
+
+CREATE TABLE orders (
+
+id SERIAL PRIMARY KEY,
+
+name VARCHAR(50) NOT NULL,
+
+created_at TIMESTAMP NOT NULL,
+
+est_delivery TIMESTAMP NOT NULL,
+
+CHECK (created_at < est_delivery)
+
+);
+
+The check ensures only the colors red, green and blue are added into the database
+
+CREATE TABLE cars (
+
+id SERIAL PRIMARY KEY,
+
+name VARCHAR(20),
+
+color VARCHAR(20) CHECK (color IN ('red', 'green', 'blue'))
+
+);
+
+NB: We can only make use of columns inside the check statement inside the row that we are trying to insert
+
+**Where to Apply Validation**
+
+| **Web Server**                                    | **Database**                                                         |
+|---------------------------------------------------|----------------------------------------------------------------------|
+| Easier to express more complex validation         | Validation still applied even if you connect with a different client |
+| Fare easier to apply new validation rules         | Guaranteed that validation is always applied                         |
+| Many libraries to handle validation automatically | Can only apply new validation rules if all existing rows satisfy it  |
+
+NB: Better if you put the bulk of your validation at the web server level and only put some very critical ones in the database
+
+**SQL Schema Designers**
+
+1. Dbdiagram.io
+2. Drawsql.app
+3. Sqldbm.com
+4. Quickdatabasediagrams.com
+5. Ondras.zarovi.cz/sql/demo
+
+Check on draw.io (can create good visual diagrams)
