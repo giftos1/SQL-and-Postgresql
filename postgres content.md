@@ -501,3 +501,287 @@ NB: Better if you put the bulk of your validation at the web server level and on
 5. Ondras.zarovi.cz/sql/demo
 
 Check on draw.io (can create good visual diagrams)
+
+**How to build a like system**
+
+Rules of likes
+
+- Each user can like a specific post a single time
+- A user should be able to ‘unlike’ a post
+- Need to be able to figure out how many users like a post
+- Need to be able to list which users like a post
+- Something besides a post might need to be liked (comments)
+- We might want to think about ‘dislikes’ or other kinds of reactions
+
+How To Not Design A Like System
+
+Do not add a ‘likes’ column to posts
+
+- No way to make sure a user likes a post only once
+- No way to make sure a user can only ‘unlike’ a post they have liked
+- No way to figure out which users like a particular post
+- No way to remove a like if a user gets deleted
+
+Designing a Like system
+
+Create a likes table with user_id and post_id
+
+Assign a unique constraint to user_id and post_id such that a user cannot like a post twice -> UNIQUE(user_id, post_id)
+
+Disadvantage of the system above – Can’t really track or know the exact reaction of the like of a post or track the dislikes
+
+**Making a Reaction System Instead**
+
+Make a reactions table with these columns: id, user_id, post_id, type
+
+**Polymorphic Associations**
+
+A like can be a ‘post like’ or a ‘comment like’. (polymorphic association)
+
+Requires your app to figure out the meaning of each like
+
+Can’t use foreign key columns – ‘liked_id’ is a plain integer
+
+Not recommended, but may still see it in use
+
+Best Solution (use this)
+
+Create a likes table with the following columns: id, user_id, post_id, comment_id
+
+| Likes |     |     |     |
+| --- |     |     |     | --- | --- | --- |
+| Id  | User_id | Post_id | Comment_id |
+| 1   | 3   | 1   | NULL |
+| 2   | 1   | NULL | 3   |
+
+The table above allows to associate a user with posts or comments and still get to use foreign key columns.
+
+First row indicates a like for a post with an ID of one.
+
+Second row indicates a like for a comment with an id of 3.
+
+We need to make sure we don’t have a scenario where there are two values of post_id and comment_id defined or both the post_id and comment_id are null
+
+Use the following Constraint:
+
+**ADD CHECK of**
+
+**(COALESCE((post_id)::BOOLEAN::INTEGER,0)**
+
+**+**
+
+**COALESCE((comment_id)::BOOLEAN::INTEGER, 0)) = 1**
+
+_COALESCE returns the first value that is not null_
+
+e.g.
+
+SELECT COALESCE(NULL, 5); // returns 5
+
+SELECT COALESCE(10, 5); // returns 10
+
+SELECT (NULL)::BOOLEAN::INTEGER; // returns null(If put in a Coalesce function, coalesce is not going to return any value for that)
+
+SELECT (534)::BOOLEAN::INTEGER; //returns 1
+
+**The Simplest Alternative**
+
+Each type of like gets its own table
+
+Still want to write queries that will count up all likes? _You can use a Union or a View_
+
+Creating a Posts_likes and Comments_likes table
+
+The only downside is if a user has to like different kinds of things, we may end up creating many different kinds of tables
+
+**How To Build A Mention System**
+
+**Additional Features around Posts**
+
+REAL datatype goes up to 6 decimals
+
+Photo Mentions vs Caption Mentions
+
+- Need to show a list of posts a user was mentioned in?
+- Need to show a list of the most-often mentioned users?
+- Need to notify a user when they’ve been mentioned?
+
+Considerations on Photo Tags vs Caption Tags
+
+Tag Solution 1
+
+We could have a single table of tags with the following columns: id, user_id, post_id, x and y coordinates.
+
+If the X and Y coordinates are NULL, then it means it’s a tag in a Caption.
+
+Tag Solution 2
+
+Create 2 tag tables: photo_tags and caption tags.
+
+Their difference being that the photo_tags have the x and y coordinate and the caption tags have only the user_id and post_id
+
+Which ones better?
+
+Do you expect to query for caption_tags and photo_tags at different rates?
+
+Will the meaning of a photo_tag change at some point?
+
+If you may expect any changes, solution 2 is the best, either way solution 2 is very flexible and convenient for any future changes.
+
+Table users {
+
+&nbsp; id SERIAL \[pk, increment\]
+
+&nbsp; created_at TIMESTAMP
+
+&nbsp; updated_at TIMESTAMP
+
+&nbsp; username VARCHAR(30)
+
+}
+
+Table posts {
+
+&nbsp; id SERIAL \[pk, increment\]
+
+&nbsp; title VARCHAR
+
+&nbsp; url VARCHAR(200)
+
+&nbsp; user_id INTEGER \[ref: > users.id\]
+
+&nbsp; caption VARCHAR(240)
+
+&nbsp; lat REAL
+
+&nbsp; lng REAL
+
+}
+
+Table comments {
+
+&nbsp; id SERIAL \[pk, increment\]
+
+&nbsp; contents VARCHAR(240)
+
+&nbsp; user_id INTEGER \[ref: > users.id\]
+
+&nbsp; post_id INTEGER \[ref: > posts.id\]
+
+}
+
+Table likes {
+
+&nbsp; id SERIAL \[pk, increment\]
+
+&nbsp; created_at TIMESTAMP
+
+&nbsp; user_id INTEGER \[ref: > users.id\]
+
+&nbsp; post_id INTEGER \[ref: > posts.id\]
+
+&nbsp; comment_id INTEGER \[ref: > comments.id\]
+
+}
+
+Table photo_tags {
+
+&nbsp; id SERIAL \[pk, increment\]
+
+&nbsp; created_at TIMESTAMP
+
+&nbsp; updated_at TIMESTAMP
+
+&nbsp; post_id INTEGER \[ref: > posts.id\]
+
+&nbsp; user_id INTEGER \[ref: > users.id\]
+
+&nbsp; x iNTEGER
+
+&nbsp; y INTEGER
+
+}
+
+Table caption_tags {
+
+&nbsp; id SERIAL \[pk, increment\]
+
+&nbsp; created_at TIMESTAMP
+
+&nbsp; post_id INTEGER \[ref: > posts.id\]
+
+&nbsp; user_id INTEGER \[ref: > users.id\]
+
+}
+
+**How to Build a ‘Hashtag’ System**
+
+Seeing hashtags used in posts, comments, and user bio’s might make you think we need some kind of relationship for each.
+
+We only have to model resources in the DB if we expect to query for them at some point!
+
+Do we expect to run a query to see what posts/comments/users contain a given hashtag?
+
+Can search for posts that contain a hashtag – implies that hashtags in a post’s caption are modelled in the db!
+
+We can’t search for comments or user with a hashtag – implies they are not modelled! (or that we don’t have to)
+
+**Tables for hashtags**
+
+Solution 1
+
+A table of hashtags with columns: id, title and post_id
+
+This would work but for some performance reasons try using this below:
+
+A table of hashtags with columns: id, title
+
+A table of hashtag_posts with columns: id, hashtag_id, post_id
+
+The reason for the performance reasons is that there were a lot of words being duplicated and any time there is duplication of strings, there may be a concern of space and may be using up a little more storage than what we would want to use.
+
+The second table stores and references the hashtags(hashtag_id) through an integer, which is less storage consuming.
+
+**A few more user columns**
+
+&nbsp;bio VARCHAR(400)
+
+&nbsp;avatar VARCHAR(200)
+
+phone VARCHAR(25)
+
+email VARCHAR(40)
+
+password VARCHAR(50)
+
+&nbsp;status VARCHAR(15)
+
+**Why No Number of Followers or Posts?**
+
+\# posts and # followers can be calculated by running a query on data that already exists in our DB. We call this **‘derived data’.** We generally don’t want to store derived data
+
+**How to design a ‘Follower’ System**
+
+Create a table of followers with columns: id, leader_id, follower_id
+
+CHECK (user_id<>follower_id)
+
+UNIQUE (leader_id, follower_id) # We can never have two rows with an identical leader_id and follower_id
+
+**Implementing Database Design Patterns**
+
+1. Create a new db using PGAdmin
+2. Convert our design to a series of CREATE TABLE statements
+3. Insert data into the database
+4. Write some queries
+5. Realize that a few things could have been designed better! Make some changes
+
+NOT NULL (A value must be provided (empty strings are values!)
+
+DEFAULT (Provide a default value if an INSERT statement doesn’t give one)
+
+NOT NULL + DEFAULT (We always want a value, but it should be optional)
+
+Latitude values range from -90 < lat < 90
+
+Longitude values range from -180 < long < 180
