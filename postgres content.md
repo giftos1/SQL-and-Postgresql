@@ -785,3 +785,58 @@ NOT NULL + DEFAULT (We always want a value, but it should be optional)
 Latitude values range from -90 < lat < 90
 
 Longitude values range from -180 < long < 180
+
+**Restoring from Scratch**
+
+1. Delete database
+2. Recreate new one
+3. Right click on new database and select restore
+4. Under data options, enable: **_Do not save – owner, query – single transaction, disable – trigger, verbose messages_**(usually on by default)
+
+Adding Data to an already existing Database
+
+Right Click on database and select restore, add your data from local path
+
+Enable the following before restoring:
+
+- **_Only data – yes_**
+- **_Owner – yes_**
+- **_Single transaction – yes_**
+- **_Trigger – yes_**
+- **_Verbose messages – yes_**(default)
+
+Query quizzes
+
+\-- Select three users with the highest ids from the users table
+
+**SELECT id, username**
+
+**FROM users**
+
+**ORDER by id DESC**
+
+**LIMIT 3;**
+
+\-- Join the users and posts table. Show the username of user ID 200 and the captions of all posts they have created (I’ve added username column)
+
+**SELECT (SELECT username FROM users WHERE users.id = 200), posts.user_id, posts.caption**
+
+**FROM posts**
+
+**JOIN users ON users.id = posts.user_id**
+
+**WHERE posts.user_id = 200;**
+
+\-- Show each username and the number of 'likes' that they have created in descending order
+
+**SELECT users.username, COUNT(\*) as num_of_likes**
+
+**FROM users**
+
+**JOIN likes ON likes.user_id = users.id**
+
+**\-- WHERE Username = 'Desmond.Armstrong42'**
+
+**GROUP BY username**
+
+**ORDER BY num_of_likes DESC;**
