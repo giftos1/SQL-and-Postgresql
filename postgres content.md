@@ -840,3 +840,84 @@ Query quizzes
 **GROUP BY username**
 
 **ORDER BY num_of_likes DESC;**
+
+**Thinking About Performance**
+
+Performance with Postgres
+
+- You can get away with quick tips and hints
+- Much easier to understand performance if you understand the internals
+- Look at how data is stored and accessed
+- Investigate at how indexes are stored and used
+- Put these together to understand how queries are executed
+
+Where does Postgres Store Data
+
+All databases are in the base folder (locally)
+
+// shows the path where postgres stores its data
+
+**SHOW data_directory;**
+
+// lists out the name of the different databases in our postgres installation and an internal identifier that is used for each one
+
+**SELECT oid, datname**
+
+**FROM pg_database;**
+
+// lists each file that represents individual objects(indexes, sequences, pks) inside our database (base/number/..)
+
+**SELECT \* FROM pg_class;**
+
+The oid number represents the identifier of the actual raw file in the local database
+
+**Heaps, blocks and Tuples**
+
+- Heap – File that contains all the data (rows) of our table e.g 16386
+- Tuple or item – Individual row from the table
+- Block or Page – The heap file is divided into many different ‘block’ or ‘pages’. Each page/block stores some number of rows (always 8kb in size)
+
+| **Block 1** |     |     |
+| --- |     |     | --- | --- |
+| Information about this block |     |     |
+|     | Loc of item 1 | Loc of item 2 |
+| Free Space |     |     |
+| Data for Tuple 2 |     |     |
+| Data For tuple 1 |     |     |
+
+The free space is a collection of zeros and ones that are not actually being used by the block now. It is information or space that can eventually be used to assign some kind of actual user.
+
+The Data for Tuple 2 and 1 are the actual data themselves. (collections of zeros and ones)
+
+Understanding how Postgres stores data at the binary level
+
+[PostgreSQL: Documentation: 17: 65.6. Database Page Layout](https://www.postgresql.org/docs/current/storage-page-layout.html) (Outline how Postgres stores information in one individual page)
+
+The first 24 bytes of each page consists of a page header (PageHeaderData) (first 24 cols)
+
+**PageHeaderData layout**
+
+| **Field** | **Type** | **Length** | **Description** |
+| --- | --- | --- | --- |
+| pd_lsn | PageXLogRecPtr | 8 bytes | LSN: next byte after last byte of WAL record for last change to this page |
+| pd_checksum | uint16 | 2 bytes | Page checksum |
+| pd_flags | uint16 | 2 bytes | Flag bits |
+| pd_lower | LocationIndex | 2 bytes | Offset to start of free space |
+| pd_upper | LocationIndex | 2 bytes | Offset to end of free space |
+| pd_special | LocationIndex | 2 bytes | Offset to start of special space |
+| pd_pagesize_version | uint16 | 2 bytes | Page size and layout version number information |
+| pd_prune_xid | TransactionId | 4 bytes | Oldest unpruned XMAX on page, or zero if none |
+
+**Page layout**
+
+Check Figure 65.1 Page layout in [PostgreSQL: Documentation: 17: 65.6. Database Page Layout](https://www.postgresql.org/docs/current/storage-page-layout.html)
+
+The item id points to the start of the item and the length in bytes
+
+All table rows are structured in the same way. There is a fixed-size header (occupying 23 bytes on most machines), followed by an optional null bitmap, an optional object ID field, and the user data.
+
+Meaning free data +23 bytes +filler info(around 8/9bits) then the actual data(the first byte is probably the Id of the row)
+
+[Binary to Decimal Converter](https://www.rapidtables.com/convert/number/binary-to-decimal.html) (7 digits+ 8 digits)
+
+**A Look at Indexes for Performance**
