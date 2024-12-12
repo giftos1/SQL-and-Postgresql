@@ -1322,3 +1322,138 @@ In as much as an index can be created at column ‘created_at’ Postgres can de
 Indexes are best used for fetching a small amount of data and not too many. If the query like the one above is going to return results constituting almost 70% of the records, postgres automatically uses sequential scans.
 
 Don’t need to force Postgres to do an index scan when it has already performed a sequential scan despite an index having been created at a particular column. Postgres has already done the math and knows that the sequential scan is the best method to be used for efficiency
+
+
+**SIMPLE COMMON TABLE EXPRESSIONS**
+
+Common Table Expressions
+
+- These are techniques one can use to make a query easier to read
+- They are defined with a ‘with’ before the main query
+- Produces a table that we can refer to anywhere else
+- It has two forms: A **Simple** and **Recursive form**
+- A Simple form to make a query easier to understand
+- A recursive form to write queries that are otherwise impossible to write!
+
+e.g.
+
+Show the username of users who were tagged in a caption or photo before January 7<sup>th</sup>, 2010. Also show the date they were tagged.
+
+Solution without table expressions
+
+**SELECT users.username, tags.created_at**
+
+**FROM users**
+
+**JOIN (**
+
+**SELECT user_id, created_at FROM caption_tags**
+
+**UNION ALL**
+
+**SELECT user_id, created_at FROM photo_tags**
+
+**) AS tags ON tags.user_id = users.id**
+
+**WHERE tags.created_at < '2010-01-07'**
+
+Solution with table expressions (simple form)
+
+**WITH tags AS (**
+
+**SELECT user_id, created_at FROM caption_tags**
+
+**UNION ALL**
+
+**SELECT user_id, created_at FROM photo_tags**
+
+**)**
+
+**SELECT users.username, tags.created_at**
+
+**FROM users**
+
+**JOIN tags ON tags.user_id = users.id**
+
+**WHERE tags.created_at < '2010-01-07';**
+
+**RECURSIVE COMMON TABLE EXPRESSION (CTES)**
+
+- They are very different from simple CTE’s
+- Useful anytime you have a tree or graph-type data structure
+- Must use a ‘union’ keyword – simple CTE’s don’t have to use a union!
+- One of the hardest concepts in SQL
+
+Example
+
+**WITH RECURSIVE countdown(val) AS (**
+
+**SELECT 10 AS val** \-- Initial, Non-recursive query
+
+**UNION**
+
+**SELECT val - 1 FROM countdown WHERE val > 1** \-- Recursive query
+
+**)**
+
+**SELECT \***
+
+**FROM countdown;**
+
+Returns 3, 2, 1
+
+**Recursive CTE step by step**
+
+- Define the results and working tables
+- Run the initial non-recursive statement, put the results into the results table and working table
+- Run the recursive statement replacing the table name ‘countdown’ with a reference to the working table
+- If recursive statement returns some rows, append them to the results and run recursion again
+- If recursive statement returns no rows stop recursion
+
+**Why Use Recursive CTE’s**
+
+Take a look at Instagram suggestions
+
+I follow The Rock and Kevin Hart. Both celebs then follow Justin Beiber, Jennifer Lopez and Snoop Dogg. Instagram will then suggest Justin Beiber, JLo and Snoop Dogg
+
+To get a list of suggestions, we’ll need to write a query to take a look at some user is following find those people and find who they are following in turn
+
+The scenario above is definitely a tree-graph like structure and a recursion would be needed
+
+**Writing The Query**
+
+We’ll use the users and followers table
+
+Example
+
+The query below list the suggestions (30) that user 1000 should try following based on the people the user already follows
+
+**WITH RECURSIVE suggestions(leader_id, follower_id, depth) AS (**
+
+**SELECT leader_id, follower_id, 1 AS depth**
+
+**FROM followers**
+
+**WHERE follower_id = 1**
+
+**UNION**
+
+**SELECT followers.leader_id, followers.follower_id, depth + 1**
+
+**FROM followers**
+
+**JOIN suggestions ON suggestions.leader_id = followers.follower_id**
+
+**WHERE depth < 3**
+
+**)**
+
+**SELECT DISTINCT users.id, users.username**
+
+**FROM suggestions**
+
+**JOIN users ON users.id = suggestions.leader_id**
+
+**WHERE depth > 1**
+
+**LIMIT 30;**
