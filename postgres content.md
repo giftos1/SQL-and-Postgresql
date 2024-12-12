@@ -921,3 +921,404 @@ Meaning free data +23 bytes +filler info(around 8/9bits) then the actual data(th
 [Binary to Decimal Converter](https://www.rapidtables.com/convert/number/binary-to-decimal.html) (7 digits+ 8 digits)
 
 **A Look at Indexes for Performance**
+
+When loading a query like this:
+
+SELECT \* FROM users WHERE username = ‘Riann’;
+
+Postgres loads up all files locally (a heap file) into memory (RAM) then searches one by one until it finds user Riann
+
+As a data engineer try as much as possible in minimizing the amount of data being moved from the Heap file on the hard drive to memory (performance)
+
+**Full Table Scan** – PG has to load many (or all) rows from the heap file to memory (Frequently (but not always) poor performance
+
+**Whats an Index?**
+
+(SELECT \* FROM users WHERE username = ‘Riann’;)
+
+Example – Riann is at Block 1 Index 2 (Riann is fetched directly from his block/page without having to look at any other block)
+
+An index is a data structure that very efficiently tells us what block/index a record is stored at. (It will help in the above example)
+
+**How an Index works**
+
+Questions to ask?
+
+(SELECT \* FROM users WHERE username = ‘Riann’;)
+
+1. Which column do we want to have very fast lookups on? (username)
+2. Extract only the property we want to do fast lookups by and the block/index for each
+3. Sort in some meaningful way (alphabetical, ascending or descending)
+4. Organize into a tree data structure (Evenly distribute values in the leaf nodes, in order left to right)
+5. Add helpers to the root node
+
+**Things to note from Screenshot:**
+
+- We didn’t load up the vast majority of records inside the heap file i.e we did not have to access block 0 inside the heap file
+- We never had to visit the left leaf node i.e with Alf and Jia – The evaluation at the root node made this possible
+
+**Creating an index**
+
+\-- Creating an index without assigning a name
+
+**CREATE INDEX ON users (username);**
+
+\-- Creating an index with a name (best to follow naming convention - users_column_idx)
+
+**\-- CREATE INDEX users_username_idx ON users (username);**
+
+\-- Delete index
+
+**\-- DROP INDEX users_username_idx;**
+
+**Benchmarking Queries**
+
+Using the ‘EXPLAIN ANALYZE’ keywords at the beginning of a query
+
+_Example_
+
+_\-- Running the query with the index (0.05ms – execution time) 10 times faster_
+
+**EXPLAIN ANALYZE SELECT \***
+
+**FROM users**
+
+**WHERE username = 'Emil30';**
+
+_\-- Running the query without the index (0.5ms)_
+
+**EXPLAIN ANALYZE SELECT \***
+
+**FROM users**
+
+**WHERE username = 'Emil30';**
+
+**Downsides of Indexes**
+
+- Storage cost (a separate file is created in hard drive to store extra data) and can be expensive especially on cloud storage
+
+**CREATE INDEX ON users (username);**
+
+\-- prints out the amount of space used by the users table (872kb)
+
+**SELECT pg_size_pretty(pg_relation_size('users'));**
+
+\-- prints out the amount of space used by the username index file (184kb)
+
+**SELECT pg_size_pretty(pg_relation_size('users_username_idx'));**
+
+- Slows down insert/update/delete – the index has to be updated!
+- Index might not actually used to speed up a particular query
+
+**Index type**
+
+- B-Tree -> General purpose index. 99% of the time you want this
+- Hash -> Speeds up simple equality checks
+- GiST – Geometry, full-text search
+- SP-GiST -> Clustered data, such as dates -many rows might have the same year
+- GIN -> For columns that contain arrays or JSON data
+- BRIN -> Specialized for really large datasets
+
+**Automatically generated Indexes**
+
+- Postgres automatically creates an index for the primary key column of every table (e.g. hashtags_pkey)
+- Postgres automatically creates an index for any ‘unique’ constraint (e.g. hashtags_title_key)
+- NB: They don’t get listed under ‘indexes’ in PGAdmin!
+
+\-- the pg_class lists all the different objects in the database. You can see all the indexes listed as objects with the code below
+
+**SELECT relname, relkind**
+
+**FROM pg_class**
+
+**WHERE relkind = 'i';**
+
+**Quiz**
+
+You realize that you have to find phones based on their name very often, and you want queries involving the name to be as fast as possible.  What would you do to make these queries very fast?
+
+Ans
+
+I don’t need to create an index because there is already a uniqueness check on that column. Postgres will have already created an index for me!
+
+**Behind the Scenes of Indexes**
+
+When creating an index an actual file is created on the hard drive and is assigned a particular number
+
+The structure of the file is:
+
+- Meta page (information about the overall index)
+- Leaf Block/Page
+- Leaf Block/page
+- Root Block/page
+- Leaf Block/Page
+
+Each file is 8kb
+
+In memory:
+
+Meta page -> Root Block – Leaf block(x3)
+
+Parent nodes are created when Postgres has over certain number of records
+
+Root – parent Node – Leaf Node
+
+\-- an extension gives us an additional functionality inside of Postgres
+
+CREATE EXTENSION pageinspect;
+
+\-- bt - b tree, metap - metapage
+
+\-- root is the index of our root page inside of the index file
+
+SELECT \*
+
+FROM bt_metap('users_username_idx');
+
+\-- ctid represents the index of the different leaf nodes
+
+SELECT \*
+
+FROM bt_page_items('users_username_idx', 3)
+
+\-- the ctid in a leaf node represents the page and the index in that page of where we can find a particular record in a heap file
+
+SELECT \*
+
+FROM bt_page_items('users_username_idx', 1);
+
+\-- shows ctid as (33,43)
+
+SELECT ctid, \* FROM users WHERE username = 'Aaliyah.Hintz';
+
+\-- The first row in a node is a pointer to the first record in the next table
+
+\-- gives the name/identifier for the database itself
+
+SELECT oid, datname from pg_database;
+
+SHOW data_directory;
+
+SELECT \*
+
+FROM pg_class
+
+WHERE relkind = 'i';
+
+**Basic Query Tuning**
+
+The query processing timeline
+
+Take a query like:
+
+**SELECT \* FROM users WHERE username = ‘Alyson14’;**
+
+Postgres takes the following steps to process the query:
+
+1. **Parser** – Ensures what you wrote is valid sql (appropriate punctuation, keywords, spelling e.t.c.) A query tree is then built.
+2. **Rewrite** – takes a look at the query tree and rewrites it if Postgres thinks some parts of the tree could be rewritten efficiently
+3. **Planner** – Looks at the query tree, figures out what information am trying to fetch then comes with a series of different plans/strategies that could be used to get that information
+4. **Execute**
+
+Explain and Explain Analyze
+
+Explain and Explain analyze help us understand how a query is actually being executed and helps us figure out how to improve the performance of that query as well
+
+Explain – Build a query and display info about it (tells us what Postgres plans to do but doesn’t actually do it)
+
+Explain analyze – Build a query plan, run it, and info about it (tells us what Postgres plans to do and actually runs it)
+
+NB: They are for benchmarking + evaluating queries, not for use in real data fetching
+
+e.g.
+
+**EXPLAIN ANALYZE SELECT username, contents**
+
+**FROM users**
+
+**Join comments ON comments.user_id = users.id**
+
+**WHERE username = 'Alyson14'**
+
+Solving an Explain Mystery
+
+A query node is represented by a row that has an arrow (->) on it in the query plan when executing explain analyze. A hash join can be taken as a query node too
+
+Whenever we see an arrow in the query plan, the arrow indicates that it is trying to access some data in the database or inside of an index and tries to emit or pass that data to the nearest parent that has an arrow on it.
+
+_Explain Analyze Output_
+
+- Hash Join – How this node is generating data
+- Cost = 7.77..1234.56 – amount of processing power required for this step
+- rows = 11 – A guess at how many rows this step will produce
+- width=81 – A guess at the average number of bytes of each row
+
+Explain Output
+
+- It does show the number of rows and average width of those rows without actually executing the query (How does Postgres know this?)
+- Postgres keeps some very detailed statistics about what is going on inside of each of our different tables
+
+Pg_stats is a table that is maintained by Postgres that shows detailed statistics of all the different values and all the different columns of our different tables
+
+The statistics shown of the tables is what helps Postgres have a guess of some of the different rows coming out of each of those steps of the query plan, the cost or the outcome of those different steps without having to do any processing
+
+**SELECT \***
+
+**FROM pg_stats**
+
+**WHERE tablename = 'users';**
+
+**Advanced Query Tuning**
+
+Developing an Intuitive Understanding of Cost
+
+Working definition for cost – Amount of time to execute some part of our query plan (not super accurate but good enough)
+
+On the planner step and assume this is the query that is to be executed:
+
+**SELECT \* FROM users WHERE username = ‘Alyson14’;**
+
+Postgres may launch either of the following steps:
+
+1. Look at users_username_idx then get users?
+
+- Find the IDs of users who have username of ‘Alyson14’
+- Get root node
+- Jump to some random child page
+- Process the values in that node
+
+_One page to execute above and below_
+
+- Open users heapfile
+- Jump to each block that has the users we are looking for
+- Process the appropriate users from each block
+
+1. Fetch all users and search through them?
+
+- Open the users heap file
+
+_Do below once for every page_
+
+- Load all users from the first block
+- Process each user, see if it contains the correct username
+- Repeat the process for the next block (step 2)
+
+NB: Loading data from random spots off a hard drive usually takes more time than loading data sequentially (one piece after another)
+
+Assumption – Let’s assume that loading a random page takes 4 time stronger than loading up pages sequentially
+
+Random calculation:
+
+(2 pages loaded in random order) \* 4 -> 8
+
+(110pages loaded sequentially) \* 1 -> 110
+
+**Queries**
+
+EXPLAIN SELECT username, contents
+
+FROM users
+
+Join comments ON comments.user_id = users.id
+
+WHERE username = 'Alyson14';
+
+EXPLAIN ANALYZE SELECT username, contents
+
+FROM users
+
+Join comments ON comments.user_id = users.id
+
+WHERE username = 'Alyson14';
+
+**A touch more on costs**
+
+Formula for calculating the cost of a processing step in a query plan
+
+Cost =
+
+(Number of pages read sequentially) \* seq_page_cots
+
+\+ (Number of pages read at random) \* random_page_cost
+
+\+ (Number of rows scanned) \* cpu_tuple_cost
+
+\+ Number of index entries scanned) \* cpu_index_tuple_cost
+
+\+ (Number of times function/operator evaluated) \* cpu_operator cost
+
+Quiz
+
+The formula for calculating the cost of a processing step in a query plan is:
+
+1. COST = (#pages read sequentially) \* seq_page_cost
+2.     + (# pages read at random) \* random_page_cost
+3.     + (# rows scanned) \* cpu_tuple_cost
+4.     + (# index entries scanned) \* cpu_index_tuple_cost
+5.     + (# times function/operator evaluated) \* cpu_operator_cost
+
+Where
+
+1. seq_page_cost = 1.0
+2. random_page_cost = 4.0
+3. cpu_tuple_cost = 0.01
+4. cpu_index_tuple_cost = 0.005
+5. cpu_operator_cost = 0.0025
+
+What is the cost for a query node that has to open 5 pages of data sequentially and then process 100 rows total? **6**
+
+**Quiz**
+
+Question 2:
+
+The formula for calculating the cost of a processing step in a query plan is:
+
+1. COST = (#pages read sequentially) \* seq_page_cost
+2.     + (# pages read at random) \* random_page_cost
+3.     + (# rows scanned) \* cpu_tuple_cost
+4.     + (# index entries scanned) \* cpu_index_tuple_cost
+5.     + (# times function/operator evaluated) \* cpu_operator_cost
+
+Where
+
+1. seq_page_cost = 1.0
+2. random_page_cost = 4.0
+3. cpu_tuple_cost = 0.01
+4. cpu_index_tuple_cost = 0.005
+5. cpu_operator_cost = 0.0025
+
+What is the cost for a query node that has to open 4 pages of an index (probably at random), process 75 tuples from the index, then open 20 different pages from a heap file (also at random) and process 214 tuples? **98.515**
+
+**Startup vs Total Costs**
+
+check word doc for attached pic
+
+Cost normally has two sections (e.g cost = 8.31..1756.11)
+
+The 8.31 – represents the cost to produce the first row
+
+The 1756.11 – represents the cost to produce all rows
+
+NB: Its better if the startup cost is low as it indicates that some processing has already begun. If it’s a huge number, then it probably indicates that all rows may have been scanned first before any processing begins
+
+**_Costs flow up_**
+
+The hash join cost indicates the total cost of all the hash join children and the hash join itself (8.31).
+
+**Use My Index**
+
+Take a query like this:
+
+EXPLAIN SELECT \*
+
+FROM likes
+
+WHERE created_at > '2013-01-01';
+
+CREATE INDEX likes_created_at_idx ON likes (created_at);
+
+In as much as an index can be created at column ‘created_at’ Postgres can decide to still use a sequential scan to produce results.
+
+Indexes are best used for fetching a small amount of data and not too many. If the query like the one above is going to return results constituting almost 70% of the records, postgres automatically uses sequential scans.
+
+Don’t need to force Postgres to do an index scan when it has already performed a sequential scan despite an index having been created at a particular column. Postgres has already done the math and knows that the sequential scan is the best method to be used for efficiency
