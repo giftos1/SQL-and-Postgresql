@@ -1602,3 +1602,94 @@ To drop a view:
 
 **DROP VIEW recent_posts;**
 
+**OPTIMIZING QUERIES WITH MATERIALIZED VIEWS**
+
+A Materialized View – A Query that gets executed only at very specific times, but the results are saved and can be referenced without rerunning the query
+
+Views – Query that gets executed every time you refer to it
+
+Example
+
+For each week, show the number of likes that posts and comments received. Use the post and comment created_at date, not when the like was received
+
+Reminder on left joins
+
+The picture below shows why we need to use a left join in this scenario. Using an inner join will remove all rows cause of the null values
+
+_Pic in word doc_
+
+Writing A Slow Query
+
+The date trunc function allows one to pull one piece of information out of a timestamp
+
+In this case we’ll pull out the week from all the different created at values that we have.
+
+The date trunc rounds down the created_at values to the nearest week
+
+Solution:
+
+**SELECT**
+
+**date_trunc('week', COALESCE(posts.created_at, comments.created_at)) AS week,**
+
+**COUNT(posts.id) AS num_likes_for_posts,**
+
+**COUNT(comments.id) AS num_likes_for_comments**
+
+**FROM likes**
+
+**LEFT JOIN posts ON posts.id = likes.post_id**
+
+**LEFT JOIN comments ON comments.id = likes.comment_id**
+
+**GROUP BY week**
+
+**ORDER BY week;**
+
+Creating and Refreshing Materialized Views
+
+With data ensures that when we first create the materialized view, Postgres automatically runs the query one time and holds on to the results.
+
+Solution
+
+**CREATE MATERIALIZED VIEW weekly_likes AS (**
+
+**SELECT**
+
+**date_trunc('week', COALESCE(posts.created_at, comments.created_at)) AS week,**
+
+**COUNT(posts.id) AS num_likes_for_posts,**
+
+**COUNT(comments.id) AS num_likes_for_comments**
+
+**FROM likes**
+
+**LEFT JOIN posts ON posts.id = likes.post_id**
+
+**LEFT JOIN comments ON comments.id = likes.comment_id**
+
+**GROUP BY week**
+
+**ORDER BY week**
+
+**) WITH DATA;**
+
+The speed was greatly increased in this scenario.
+
+One downside to this is that, if we modify any of the underlying data e,g posts or comments, the cached results are not going to be modified.
+
+We have to manually tell Postgres that it needs to go back and update the materialized view as below:
+
+**REFRESH MATERIALIZED VIEW weekly_likes;**
+
+Quiz
+
+**What is the primary difference between a view and a materialized view?**
+
+Both Views and materialized views wrap up a query. When you refer to a view, the query is executed. When you refer to a materialized view, you get back the results from when the materialized view was created or when it was last refreshed.
+
+**You are writing a query that takes twenty seconds to execute.  Even though the query gets executed many times per day, the results only change once per month**
+
+**Would this query be a good candidate for a materialized view?**
+
+Yes
