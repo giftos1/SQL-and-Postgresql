@@ -1457,3 +1457,148 @@ The query below list the suggestions (30) that user 1000 should try following ba
 **WHERE depth > 1**
 
 **LIMIT 30;**
+
+
+**SIMPLIFYING QUERIES WITH VIEWS**
+
+Most Popular Users
+
+Example
+
+Show the most popular users – the users who were tagged the most
+
+Answer:
+
+**WITH tags AS (**
+
+**SELECT user_id FROM caption_tags**
+
+**UNION ALL**
+
+**SELECT user_id FROM photo_tags**
+
+**)**
+
+**SELECT users.username, COUNT(users.username)**
+
+**FROM users**
+
+**JOIN tags ON tags.user_id = users.id**
+
+**GROUP BY users.username**
+
+**ORDER BY COUNT(users.username) DESC;**
+
+A Possible Solution For Merging Tables
+
+- We’ve had to find the union several times
+- There’s been no benefit to keeping these records in separate tables!
+- Guess we have a bad design!
+- Two possibilities to fix this up
+
+Solution 1
+
+Merge the two tables, delete the original ones (Create a new table called tags which has similar columns to the photo and cation tags tables and copy all rows from photo_tags and caption_tags)
+
+**Copying rows from photo_tags** can be done this way (replace photo_tags with caption_tags for copying from caption_tags)
+
+**INSERT INTO tags (created_at, updated_at, user_id, post_id, x, y)**
+
+**SELECT created_at, updated_at, user_id, post_id, x, y**
+
+**FROM photo_tags**
+
+Downsides of this approach
+
+- Can’t copy over the ID’s of photo_tags and caption_tags since they must be unique
+- If we delete original tables, we break any existing queries that refer to them!
+
+Creating A View
+
+- Create a fake table that has rows from other tables
+- These can be exact rows as they exist on another table, or a computed value
+- Can reference the view in any place where we’d normally reference a table
+- View doesn’t actually create a new table or move any data around
+- Doesn’t have to be used for a union! Can compute absolutely any values
+- NB: CTE’s can be referred to only in the query they are attached to
+- Views are similar but can be referred to in different queries in the future – they are persistent
+
+View Solution
+
+**CREATE VIEW tags AS (**
+
+**SELECT id, created_at, user_id, post_id, 'photo_tag' AS type FROM photo_tags**
+
+**UNION ALL**
+
+**SELECT id, created_at, user_id, post_id, 'caption_tag' AS type FROM caption_tags**
+
+**);**
+
+- Test using the select below
+
+**SELECT users.username, COUNT(users.username)**
+
+**FROM users**
+
+**JOIN tags ON tags.user_id = users.id**
+
+**GROUP BY users.username**
+
+**ORDER BY COUNT(users.username) DESC;**
+
+When To Use A View
+
+The 10 most recent posts are really important
+
+- Show the users who created the 10 most recent posts
+- Show the users who were tagged in the 10 most recent posts
+- Show the average number of hashtags used in the 10 most recent posts
+- Show the number of likes each of the 10 most recent posts received
+- Show the hashtags used by the 10 most recent posts
+- Show the total number of comments the 10 most recent posts received
+
+Solution
+
+Create a view of recent_posts and refer to it to solve the challenges above
+
+**CREATE VIEW recent_posts AS (**
+
+**SELECT \***
+
+**FROM posts**
+
+**ORDER BY created_at DESC**
+
+**LIMIT 10**
+
+**);**
+
+Show the users who created the 10 most recent posts:
+
+**SELECT username**
+
+**FROM recent_posts**
+
+**JOIN users ON users.id = recent_posts.user_id;**
+
+Designing and Changing A View
+
+Use **CREATE OR REPLACE VIEW** keyword to change or replace a view:
+
+**CREATE OR REPLACE VIEW recent_posts AS (**
+
+**SELECT \***
+
+**FROM posts**
+
+**ORDER BY created_at DESC**
+
+**LIMIT 15**
+
+**);**
+
+To drop a view:
+
+**DROP VIEW recent_posts;**
+
