@@ -1693,3 +1693,73 @@ Both Views and materialized views wrap up a query. When you refer to a view, the
 **Would this query be a good candidate for a materialized view?**
 
 Yes
+
+**HANDLING CONCURRENCY AND REVERSIBILITY WITH TRANSACTIONS**
+
+What are Transactions used for?
+
+Example
+
+Transfer $50 from Alyson to Gia
+
+- Withdraw $50 from Alyson’s account:
+
+UPDATE accounts
+
+SET balance = balance -50
+
+WHERE name = ‘Alyson’;
+
+- Add $50 to Gia’s account
+
+UPDATE accounts
+
+SET balance = balance + 50
+
+WHERE name =’Gia’;
+
+If there is a crash in the server and only half of the code above is ran, then there is no way we’ll know that we need to add $50 to Gia’s account.
+
+Transactions are therefore useful since they ensure that all the different updates are always executed or none of them.
+
+The BEGIN keyword begins a transaction.
+
+Changes made in a transaction are in a separate environment and need to be committed for the merging to occur into the main data pool.
+
+The code below took place in a transaction environment.
+
+**BEGIN;**
+
+**UPDATE accounts**
+
+**SET balance = balance - 50**
+
+**WHERE name = 'Alyson';**
+
+**UPDATE accounts**
+
+**SET balance = balance + 50**
+
+**WHERE name = 'Gia';**
+
+Run ‘COMMIT’ to merge changes back into main data pool
+
+**COMMIT;**
+
+Run ‘ROLLBACK’ to dump all pending changes and delete the separate workspace(transaction environment) and making the current connection to continue looking at the main data pool
+
+_NB: Running a bad command will put the transaction in an ‘aborted’ state and you must rollback_
+
+A bad command is something like:
+
+SELECT \* FROM asdafadfad
+
+NB: Losing the connection(crashing) will automatically rollback the transaction
+
+Transaction cleanup on Crash
+
+Remember to run a rollback if your transaction is in an aborted state.
+
+Writing a bad query e.g. a query with a typo will abort the transaction and you ought to do a rollback.
+
+If there is a transaction crash, Postgres automatically aborts the transaction
