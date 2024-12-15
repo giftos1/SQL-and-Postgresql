@@ -1763,3 +1763,141 @@ Remember to run a rollback if your transaction is in an aborted state.
 Writing a bad query e.g. a query with a typo will abort the transaction and you ought to do a rollback.
 
 If there is a transaction crash, Postgres automatically aborts the transaction
+
+**MANAGING DATBASE DESIGN WITH SCHEMA MIGRATIONS**
+
+A Story On Migrations
+
+Lessons
+
+- Anytime we make a change to our database structure, we have to synchronize that and deploy it at the same time that we change our clients as well.
+
+Changes to the DB structure and changes to clients need to be made at precisely the same time
+
+Pic in docs
+
+- When working with other engineers, we need a really easy way to tie the structure of our database to our code
+
+Migration Files
+
+A Schema Migration File is a code that describes a precise change to make to the database.
+
+Apply is the term used to describe taking a migration file and making a change to the database.
+
+Revert is used to describe undoing that change.
+
+A Few Notes On Migration Libraries
+
+Pic in docs
+
+Many migration tools can automatically generate migrations for you
+
+It is highly recommended that you write all migrations manually using plain SQL
+
+Project Creation
+
+Create a folder called ig. Cd to the ig folder and run the below commands
+
+**Npm init -y** – generates a package.json file which allows us to install some different modules into this project.
+
+**npm install node-pg-migrate pg** – installs two modules(node-pg-migrate and Postgres module)
+
+Generating And Writing Migrations
+
+Go into the package.json file and change the scripts content to
+
+“Scipts”: {
+
+“migrate”: “node-pg-migrate”
+
+},
+
+The above allows us to access the node pg migrate from our terminal
+
+**npm run migrate create table comments –** This creates a migration and in the migration file, you will see exports.up and exports.down functions
+
+The exports.up contains or produces some amount of SQL or run some command or do whatever to advance the structure of our database in some way.
+
+The exports.down contains some SQL or runs some command or do whatever to revert what we did with exports.up
+
+Example
+
+exports.up = (pgm) => {
+
+&nbsp;   pgm.sql(\`
+
+&nbsp;       CREATE TABLE comments (
+
+&nbsp;           id SERIAL PRIMARY KEY,
+
+&nbsp;           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+&nbsp;           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+&nbsp;           contents VARCHAR(240) NOT NULL
+
+&nbsp;       );
+
+&nbsp;   \`);
+
+};
+
+/\*\*
+
+&nbsp;\* @param pgm {import('node-pg-migrate').MigrationBuilder}
+
+&nbsp;\* @param run {() => void | undefined}
+
+&nbsp;\* @returns {Promise&lt;void&gt; | void}
+
+&nbsp;\*/
+
+exports.down = (pgm) => {
+
+&nbsp;   pgm.sql(\`
+
+&nbsp;       DROP TABLE comments;
+
+&nbsp;   \`);
+
+};
+
+Applying And Reverting Migrations
+
+Firstly, we set up an environment variable called DATABASE_URL that tells the Node PG migrate module that we’re using exactly how to connect to our database running on our local machine
+
+The password is the initial password you set when installing Postgres
+
+Username is **postgres**
+
+General format is:
+
+Postgres://USERNAME:PASSWORD@localhost:5432/socialnetwork
+
+Once we have the string put together , we will run a specific command:
+
+Windows with CMD
+
+Set DATABASE_URL=postgres://USERNAME:PASSWORD@localhost:5432/socialnetwork&&npm run migrate up
+
+Windows with Powershell
+
+$env:DATABASE_URL=”postgres://USERNAME:PASSWORD@localhost:5432/socialnetwork”; npm run migrate up
+
+$env:DATABASE_URL=”postgres://postgres:**PASSWORD** @localhost:5432/socialnetwork”; npm run migrate up
+
+Windows with Git Bash
+
+DATABASE_URL=postgres://USERNAME:PASSWORD@localhost:5432/socialnetwork npm run migrate up
+
+To revert the migrations, replace the word ‘up’ with the word ‘down’
+
+Generating And Applying A Second Migration
+
+Changing the contents column to the name of ‘body’
+
+**npm run migrate create rename contents to body**
+
+**$env:DATABASE_URL=”postgres://postgres:PASSWORD@localhost:5432/socialnetwork”; npm run migrate up**
+
+Finish up by checking the table in pgadmin
