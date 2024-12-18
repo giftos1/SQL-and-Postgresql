@@ -1901,3 +1901,143 @@ Changing the contents column to the name of ‘body’
 **$env:DATABASE_URL=”postgres://postgres:PASSWORD@localhost:5432/socialnetwork”; npm run migrate up**
 
 Finish up by checking the table in pgadmin
+
+SCHEMA VS DATA MIGRATIONS
+
+Write a third migration called posts with columns id, url, lat and lng
+
+The lat and lng columns can be joined to one column by the name loc of type point
+
+Point – data type in Postgres for expressing an x, y coordinate
+
+Steps we can use to merge the lat and lng colums
+
+- Add column loc (schema migration)
+- Copy lat/long to loc (data migration)
+- Drop columns lat/lng (schema migration)
+
+Dangers Around Data Migrations
+
+Do not run data and schema migrations at the same time
+
+When running migrations, it is best to run them inside a transcation as we can rollback the transaction if any of the steps fail.
+
+The steps below:
+
+- Add column ‘loc’
+- Add column complete
+- Copy from lat/lng to loc (copying millions of values! This takes time
+- Copy complete
+- Drop columns lat/lng
+- Drop complete
+
+In a Transaction World
+
+- Open a separate workspace for this copy
+- Do work
+- No errors! Commit the transaction
+
+Since a Transaction is basically a snapshot of the database at a particular time, when committing the transaction, we may end up losing newly added data when applying the data migration
+
+Properly Running Data And Schema Migrations
+
+Steps
+
+- Add Column loc
+- Deploy new version of API that will write values to both lat/lng and loc
+- Copy lat/lng to loc
+- Update code to only write to loc column
+- Drop columns lat/lng
+
+Creating a posts table
+
+Run commands in ig directory
+
+- npm run migrate create add posts table
+- Edit the migration file in vs code as below
+- exports.up = (pgm) => {
+-     pgm.sql(\`
+-         CREATE TABLE posts (
+-             id SERIAL PRIMARY KEY,
+-             url VARCHAR(300),
+-             lat NUMERIC,
+-             lng NUMERIC
+-         );
+-     \`);
+- };
+- exports.down = (pgm) => {
+-     pgm.sql(\`
+-         DROP TABLE posts;
+-     \`);
+- };
+- $env:DATABASE_URL=”postgres://postgres:**PASSWORD**@localhost:5432/socialnetwork”; npm run migrate up
+
+Confirm in pg admin that the table has been created
+
+**Transaction Locks**
+
+Updating the null values in the loc column
+
+First Approach
+
+Write the updates in a JS file as in the picture below (pic in postgres docs):
+
+Second Approach
+
+Rely fully on SQL
+
+Write the update statement directly in pgAdmin/JS File
+
+Advantage – No moving info/records between DB and Node
+
+Disadvantage – Harder to implement validation/business logic
+
+NB: A transaction that’s running has to be committed or Rollbacked since transactions end up locking the rows/the query results written it. Meaning you can’t perform any updates on those values/rows until the transaction is committed or rollbacked
+
+**Updating Values**
+
+Create Data Folder
+
+Add migration file 01-lng-lat-to-loc.js
+
+Write code:
+
+const pg = require('pg');
+
+const pool = new pg.Pool({
+
+&nbsp;   host: 'localhost',
+
+&nbsp;   port: 5432,
+
+&nbsp;   database: 'socialnetwork',
+
+&nbsp;   user: 'postgres',
+
+&nbsp;   password: 'password'
+
+});
+
+pool.query(\`
+
+&nbsp;   UPDATE posts
+
+&nbsp;   SET loc = POINT(lng, lat)
+
+&nbsp;   WHERE loc IS NULL;
+
+\`)
+
+&nbsp;   .then(() => {
+
+&nbsp;       console.log('Update complete');
+
+&nbsp;       // disconnect from database
+
+&nbsp;       pool.end();
+
+&nbsp;   })
+
+&nbsp;   .catch((err) => console.error(err.message));
+
+For updating the app server such that it only inserts the lat, long values to loc column and not to the separate lng and lat columns, look at the Index.js file in repository
