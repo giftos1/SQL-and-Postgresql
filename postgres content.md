@@ -2065,3 +2065,21 @@ We don’t make use of a client directly because a client can only be used for o
 We therefore use a pool which internally maintains several different clients that can be reused
 
 Any time you run a query, your essentially asking the pool to run the query for you and it does so by taking the query and assigning it to one of the clients that is free internally and that client will then execute the query over to Postgres
+
+**DATA ACCESS PATTERN REPOSITORY PATTERNS**
+
+The Repository Pattern
+
+Image in docs
+
+The user repository is going to be the central access point for reaching into the users table.
+
+The different routes will make use of the user repository methods.
+
+The user can be implemented as an object with plain functions, as an instance of a class, as a class with static methods, anything.
+
+**Creating A Repository**
+
+Check user-repo.js, request.http and users.js
+
+Methods to use to make arbitrary requests to the server(Postman – <www.postman.com> and REST Client – VS Code Extension)
