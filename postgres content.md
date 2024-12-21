@@ -2041,3 +2041,27 @@ pool.query(\`
 &nbsp;   .catch((err) => console.error(err.message));
 
 For updating the app server such that it only inserts the lat, long values to loc column and not to the separate lng and lat columns, look at the Index.js file in repository
+
+**ACCESSING POSTGRESQL FROM API’s**
+
+Create new database called socialnetwork
+
+Make and run migrations to create a users table, check js file in api folder
+
+**Build the Users Router**
+
+Image in docs
+
+Check users.js and app.js files in api folder
+
+**Understanding connection protocols**
+
+A module called pg is used to connect to Postgres database and run some SQL (it does not create, validate or anything else but rather just run Postgres)
+
+Pg module can be used to create a client
+
+We don’t make use of a client directly because a client can only be used for one query at a time
+
+We therefore use a pool which internally maintains several different clients that can be reused
+
+Any time you run a query, your essentially asking the pool to run the query for you and it does so by taking the query and assigning it to one of the clients that is free internally and that client will then execute the query over to Postgres
